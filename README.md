@@ -1,66 +1,90 @@
 # Game Presence
 
-App para Windows 11 que mostra no Discord (Rich Presence via IPC local) o jogo que você está jogando, com o nome e a capa que você escolher. Feito em Go com o [MyGo](https://github.com/egoist/mygo) (v0.5.5), com interface nativa desenhada pelo próprio MyGo (Direct3D 11), sem WebView2 e sem HTML. A interface do app é toda em inglês.
+Discord Rich Presence for any Windows game: pick the process, the name and the cover art.
 
-## Instalar / rodar
+Discord only detects games it knows. Game Presence watches the processes you register and shows the game on your Discord profile with the name and cover you choose. That covers PC ports, emulated games, and anything else Discord doesn't recognize. It talks to the Discord desktop app over local IPC, so no bot or login is needed.
 
-- Executável único, que roda sem instalar: `dist\windows-amd64\Game Presence.exe`
-- Instalador (opcional): `dist\windows-amd64\Game Presence Setup 1.0.0 amd64.exe`
+Built in Go with [MyGo](https://github.com/egoist/mygo) (v0.5.5). The UI is native, drawn by MyGo with Direct3D 11, with no WebView2 and no HTML.
 
-Fechar a janela não encerra o app: ele continua rodando na bandeja (ícone roxo perto do relógio). Clique no ícone para abrir a janela e clique com o botão direito para **Pause presence** / **Quit**. Abrir o .exe de novo só reabre a janela; não cria uma segunda cópia.
+## Features
 
-### Consumo (medido)
-- **Na bandeja** (o normal enquanto você joga): ~3 MB de memória em uso, um único processo, CPU praticamente zero (verifica os processos a cada 5 s).
-- **Com a janela aberta**: ~70–80 MB, ainda um único processo. A versão anterior, com WebView2, usava ~370 MB em 7 processos.
-- Ao fechar, a janela é destruída e a memória é devolvida ao Windows.
+- **Automatic detection**: checks running processes every 5 seconds, sets the activity when a registered game starts and clears it when the game closes. If Discord is opened later, the app reconnects to it.
+- **Emulator-friendly**: match by exe name, optionally narrowed by text in the window title or the command line, so several games that share one exe can each have their own entry.
+- **Cover art from three sources**: search IGDB, paste an image URL, or upload a local file to Imgur or catbox.moe.
+- **Lightweight**: a single process that lives in the tray, with start-with-Windows and single-instance support.
+- **Private by design**: API keys are stored in Windows Credential Manager, never in the config file or the log.
 
-## Configuração (uma vez, com a sua conta)
+## Install
 
-### 1. Discord Application ID (obrigatório)
-1. Abra https://discord.com/developers/applications e clique em **New Application**.
-2. O nome do Application é o que o Discord mostra no título do card de atividade. Use algo genérico, por exemplo "a game".
-3. Em **General Information**, copie o **Application ID** e cole em **Settings → Application ID** no app.
-4. No Discord, ative **Configurações de usuário → Privacidade de atividades → Compartilhar suas atividades detectadas**.
+Download or build `Game Presence.exe`. It is a single executable and needs no installation. `go tool mygo build` also produces an optional installer, `Game Presence Setup <version> amd64.exe`.
 
-### 2. Busca de capas no IGDB (opcional)
-1. Ative a autenticação em dois fatores na Twitch (é exigido) e abra https://dev.twitch.tv/console/apps → **Register Your Application**.
-2. Nome à sua escolha, OAuth Redirect URL `http://localhost`, categoria **Application Integration**, tipo de cliente **Confidential**.
-3. Copie o **Client ID**, gere um **Client Secret** (botão **New Secret**) e cole os dois em **Settings → IGDB cover search**.
+Closing the window keeps the app running in the tray. Click the tray icon to open the window, or right-click it for **Pause presence** and **Quit**. Launching the exe again only brings back the window of the copy that is already running.
 
-### 3. Upload de imagens locais (opcional)
-O Discord só mostra imagens a partir de um link público, então um arquivo local precisa ser enviado para um host antes. **A imagem enviada fica pública.**
-- **Imgur**: registre um app em https://api.imgur.com/oauth2/addclient ("Anonymous usage without user authorization") e cole o **Client ID**. Dá para apagar a imagem depois.
-- **catbox.moe**: não precisa de conta, mas a imagem não pode ser apagada depois.
+### Resource use (measured)
 
-As chaves ficam guardadas no **Gerenciador de Credenciais do Windows**, não no arquivo de configuração, e nunca vão para o log.
+- **In the tray**, which is where the app spends most of its time: about 3 MB of memory in use, and near-zero CPU.
+- **With the window open**: about 70–80 MB, still one process. An earlier WebView2 version used about 370 MB across 7 processes.
+- Closing the window destroys it and returns its memory to Windows.
 
-## Cadastrar o Bloodborne
-1. Abra o jogo pelo `Jogar Bloodborne.bat`.
-2. Clique em **Add game → Choose running…** e escolha `bb-probe.exe` (a janela tem o título "Bloodborne™").
-3. Em **Game name**, coloque "Bloodborne". Para a capa, use **Search IGDB**, **Paste URL** ou **Local file**.
-4. Clique em **Save**. Em até 5 s o Discord mostra o jogo. Use **Test** para mostrar o jogo sem ele estar aberto.
+## Setup
 
-Para emuladores que rodam vários jogos com o mesmo exe, cadastre cada jogo com o mesmo exe e um filtro em **Only when → window title contains / command line contains**.
+### 1. Discord Application ID (required)
 
-## O que o Discord mostra de verdade
-- **Perfil / card de atividade**: o nome do jogo (campo `details`), a capa, a linha de status e o tempo jogado.
-- **Lista de membros**: com **Show the game's name in the member list** ligado, o app envia `status_display_type = 2` (Details), e a lista mostra "Jogando Bloodborne" em vez do nome do Application. O campo está na documentação atual do Activity do Discord.
-- **Título do card** ("Jogando <nome>" no topo do card): é sempre o nome do Application. Pelo IPC não dá para trocar esse nome por jogo. Por isso vale dar um nome genérico ao Application.
-- A capa precisa ser uma URL `https://` pública com até 256 caracteres.
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**.
+2. Give it a generic name such as "a game". Discord shows the application's name as the title of the activity card.
+3. Under **General Information**, copy the **Application ID** and paste it into **Settings → Application ID** in the app.
+4. In Discord, open **User Settings → Activity Privacy** and turn on **Share your detected activities with others**.
 
-## Arquivos
-- Configuração e lista de jogos: `%APPDATA%\Game Presence\config.json`
+### 2. IGDB cover search (optional)
+
+1. Enable two-factor authentication on Twitch, which Twitch requires for developer apps. Then open the [Twitch developer console](https://dev.twitch.tv/console/apps) and click **Register Your Application**.
+2. Use any name, OAuth Redirect URL `http://localhost`, category **Application Integration** and client type **Confidential**.
+3. Copy the **Client ID** and generate a **Client Secret** with **New Secret**. Paste both under **Settings → IGDB cover search**.
+
+### 3. Uploading local images (optional)
+
+Discord can only show images from a public link, so local files are uploaded to an image host first. **Uploaded images are public**: anyone with the link can open them.
+
+- **Imgur**: register an app at [api.imgur.com/oauth2/addclient](https://api.imgur.com/oauth2/addclient), choosing "Anonymous usage without user authorization", and paste its **Client ID**. Images can be deleted later.
+- **catbox.moe**: no account is needed, but uploaded images cannot be deleted.
+
+## Adding a game
+
+1. Start the game.
+2. Click **Add game → Choose running…** and pick its process.
+3. Enter the **Game name**. For the cover, use **Search IGDB**, **Paste URL** or **Local file**.
+4. Click **Save**. Discord shows the game within 5 seconds. **Test** shows a game on Discord even when it isn't running.
+
+For emulators that run many games through the same exe, add each game with that exe and a filter under **Only when**: **window title contains** or **command line contains**, for example the game's folder or ID.
+
+Example: the native Bloodborne port runs as `bb-probe.exe` with the window title "Bloodborne™", so registering `bb-probe.exe` with the name "Bloodborne" and its IGDB cover is all it takes.
+
+## What Discord shows
+
+- **Profile and activity card**: the game's name (the `details` field), the cover, the optional status line and the elapsed time.
+- **Member list**: with **Show the game's name in the member list** on, the app sends `status_display_type = 2` (Details), so the list reads "Playing Bloodborne" instead of the application's name.
+- **Activity card title**: always the application's name. It cannot be changed per game over IPC, which is why a generic application name works best.
+- Covers must be public `https://` URLs of at most 256 characters.
+
+## Files
+
+- Settings and games: `%APPDATA%\Game Presence\config.json`
 - Log: `%APPDATA%\Game Presence\app.log`
 
-## Testes
+## Building
+
+Requires Go 1.27 or later. Keep the project in a path with only ASCII characters.
+
+```
+go tool mygo build
+```
+
+The executable and the installer are written to `dist\windows-amd64\`.
+
+## Tests
+
 ```
 go test ./...
 ```
-Os testes da interface rodam sem abrir janela e usam uma configuração temporária, nunca a sua.
 
-## Compilar
-Precisa do Go 1.27 ou mais novo. Mantenha o projeto em um caminho só com caracteres ASCII.
-```
-cd C:\Projetos\gamepresence
-go tool mygo build
-```
+The UI tests run headless on a temporary config, never yours. `internal/discord` also has a live test that sets a real activity for a few seconds; it runs only when `DISCORD_APP_ID` is set.
