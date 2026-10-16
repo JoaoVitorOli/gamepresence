@@ -1,0 +1,5 @@
+# Builds from `go tool mygo build`
+dist/
+build/
+*.exe
+*.test
